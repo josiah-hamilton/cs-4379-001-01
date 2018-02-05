@@ -43,8 +43,20 @@ int main(int argc, const char* argv) {
         // sums1 mpirecv 1 
         // sums2 mpirecv 2 
         // sums3 mpirecv 3 
+        int sums[ROWSIZE];
         // sums = array_cat(sums0,sums1,sums2,sums3);
         // then we can open a fd for a new file and put them there
+        int results = open("results.txt", O_WRONLY, O_CREAT);
+        if (results < 1) { return results; }
+        int fd_status;
+        for ( int i = 0; i < ROWSIZE; i++ ){
+            fd_status = fprintf(results,"%d\n", sums[i]);
+            if (fd_status < 1) { return fdstatus; }
+        }
+        fdstatus = close(results);
+        if (fd_status < 1) { return fdstatus; }
+        
+
     } else {
         // chunk = mpireceive myrank 
         int sums[CHUNKSIZE] = sum_chunk(chunk);
@@ -76,7 +88,7 @@ int[] sum_chunk(int chunk[CHUNKSIZE][COLSIZE]) {
     int sums[COLSIZE] = 0
     for (int i = 0; i < CHUNKSIZE; i++) {
         sums[i] = 0;
-        for (int j = 0; j < CHUNKSIZE; j++) {
+        for (int j = 0; j < COLSIZE; j++) {
             sums[i] += chunk[i][j];
         }
     }
