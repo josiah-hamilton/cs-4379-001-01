@@ -4,9 +4,9 @@
 #include<time.h>
 
 #define RANKS 4
-#define ROWSIZE 10000
-#define COLSIZE 10000
-#define CHUNKSIZE ROWSIZE / RANKS
+#define ROWS 10000
+#define COLS 10000
+#define CHUNKSIZE ROWS / RANKS
 
 //int rank0();        // status
 //int rankchild();    // status
@@ -25,17 +25,18 @@ int main(int argc, const char* argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     int rank = myrank * CHUNKSIZE;
 
-    int table[ROWSIZE][COLSIZE];
-
-    int chunk[CHUNKSIZE][COLSIZE];
+    int table[ROWS][COLS];
+    int chunk[CHUNKSIZE][COLS];
 
     if (myrank == 0) {
-        for (int i = 0; i < ROWSIZE; i++) {
-            for (int j = 0; j < ROWSIZE; j++) {
+        for (int i = 0; i < COLS; i++) {
+            for (int j = 0; j < ROWS; j++) {
                 table[i][j] = (int)rand();
             }
         }
-        // chunk[][] = table[chunk0][]
+        for (int i = 0; i < CHUNKSIZE; i++) {
+            chunk[i][] = table[i][]
+        }
         // mpisend 1 table[chunk1]
         // mpisend 2 table[chunk2]
         // mpisend 3 table[chunk3]
@@ -43,13 +44,13 @@ int main(int argc, const char* argv) {
         // sums1 mpirecv 1 
         // sums2 mpirecv 2 
         // sums3 mpirecv 3 
-        int sums[ROWSIZE];
+        int sums[ROWS];
         // sums = array_cat(sums0,sums1,sums2,sums3);
         // then we can open a fd for a new file and put them there
         int results = open("results.txt", O_WRONLY, O_CREAT);
         if (results < 1) { return results; }
         int fd_status;
-        for ( int i = 0; i < ROWSIZE; i++ ){
+        for ( int i = 0; i < ROWS; i++ ){
             fd_status = fprintf(results,"%d\n", sums[i]);
             if (fd_status < 1) { return fdstatus; }
         }
@@ -60,7 +61,7 @@ int main(int argc, const char* argv) {
     } else {
         // chunk = mpireceive myrank 
         int sums[CHUNKSIZE] = sum_chunk(chunk);
-        //mpisend 0 chunk[]
+        //mpisend 0 sums[]
     }
 
     return 0;
@@ -84,14 +85,12 @@ int main(int argc, const char* argv) {
 //}
 //
 
-int[] sum_chunk(int chunk[CHUNKSIZE][COLSIZE]) {
-    int sums[COLSIZE] = 0
+int[] sum_chunk(int chunk[CHUNKSIZE][COLS]) {
+    int sums[COLS] = {0}; 
     for (int i = 0; i < CHUNKSIZE; i++) {
-        sums[i] = 0;
-        for (int j = 0; j < COLSIZE; j++) {
+        for (int j = 0; j < COLS; j++) {
             sums[i] += chunk[i][j];
         }
     }
     return sums;
-
 }
