@@ -16,18 +16,20 @@ int main(int argc, const char* argv) {
     
     srand(time(NULL)); // seed clock for rand()
 
-    int size;
-    int **table;
+    int size;    // needed for sending # of processes to MPI
+    int **table; // deprecated
     int myrank;
     MPI_Status status;
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     int rank = myrank * CHUNKSIZE;
 
-    int table[ROWS][COLS];
+    int table[ROWS][COLS]; // randomly generated matrix decided by ROWS and COLS
     int chunk[CHUNKSIZE][COLS];
 
+    // rank 0 generates matrix data and sums first chunk
     if (myrank == 0) {
         for (int i = 0; i < COLS; i++) {
             for (int j = 0; j < ROWS; j++) {
@@ -66,6 +68,9 @@ int main(int argc, const char* argv) {
 
     return 0;
 }
+/**
+ * Deprecated for the moment
+ */
 //int rank0() {
 //    //generate table
 //
@@ -85,6 +90,9 @@ int main(int argc, const char* argv) {
 //}
 //
 
+/**
+ * Row-wise summation of entire chunk, returns array of row sums
+ */
 int[] sum_chunk(int chunk[CHUNKSIZE][COLS]) {
     int sums[COLS] = {0}; 
     for (int i = 0; i < CHUNKSIZE; i++) {
