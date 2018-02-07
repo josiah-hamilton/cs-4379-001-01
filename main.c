@@ -27,7 +27,10 @@ int main(int argc, const char* argv) {
     int rank = myrank * CHUNKSIZE;
 
     int table[ROWS][COLS]; // randomly generated matrix decided by ROWS and COLS
-    int chunk[CHUNKSIZE][COLS];
+    int chunk0[CHUNKSIZE][COLS];
+    int chunk1[CHUNKSIZE][COLS];
+    int chunk2[CHUNKSIZE][COLS];
+    int chunk3[CHUNKSIZE][COLS];
 
     // rank 0 generates matrix data and sums first chunk
     if (myrank == 0) {
@@ -37,18 +40,35 @@ int main(int argc, const char* argv) {
             }
         }
         for (int i = 0; i < CHUNKSIZE; i++) {
-            chunk[i][] = table[i][]
+            for ( int j = 0; j < COLS; j++) {
+                chunk0[i][j] = table[i*1-1][j]
+                chunk1[i][j] = table[i*2-1][j]
+                chunk2[i][j] = table[i*3-1][j]
+                chunk3[i][j] = table[i*4-1][j]
         }
-        // mpisend 1 table[chunk1]
-        // mpisend 2 table[chunk2]
-        // mpisend 3 table[chunk3]
+        // The Sends and receives need unique tag noumber
+        int status1 = MPI_Isend(&chunk1
+        int status2 = MPI_Isend(&chunk2
+        int status3 = MPI_Isend(&chunk3
         int sums0[CHUNKSIZE] = sum_chunk(chunk);
-        // sums1 mpirecv 1 
-        // sums2 mpirecv 2 
-        // sums3 mpirecv 3 
-        int sums[ROWS];
-        // sums = array_cat(sums0,sums1,sums2,sums3);
-        // then we can open a fd for a new file and put them there
+        do { 
+        status1 = MPI_Test();
+        status2 = MPI_Test();
+        status3 = MPI_Test();
+        } while ( ! status1 & status2 & status3 );
+
+        int sums1[CHUNKSIZE]
+        int sums2[CHUNKSIZE]
+        int sums3[CHUNKSIZE] 
+        MPI_Irecv()
+        MPI_Irecv()
+        MPI_Irecv()
+        do { 
+        status1 = MPI_Test();
+        status2 = MPI_Test();
+        status3 = MPI_Test();
+        } while ( ! status1 & status2 & status3 );
+
         int results = open("results.txt", O_WRONLY, O_CREAT);
         if (results < 1) { return results; }
         int fd_status;
