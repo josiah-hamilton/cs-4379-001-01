@@ -10,7 +10,7 @@
 
 //int rank0();        // status
 //int rankchild();    // status
-void sum_chunk(int**,int**,int);
+void sum_chunk(int**,int*,int);
 
 int main(int argc, char** argv) {
     srand(time(NULL)); // seed clock for rand()
@@ -52,10 +52,10 @@ int main(int argc, char** argv) {
         // split table into chunks
         for (int i = 0; i < CHUNKSIZE; i++) {
             for ( int j = 0; j < COLS; j++) {
-                chunk0[i][j] = table[i*1][j];
-                chunk1[i][j] = table[i*2][j];
-                chunk2[i][j] = table[i*3][j];
-                chunk3[i][j] = table[i*4][j];
+                chunk0[i][j] = table[i+0][j];
+                chunk1[i][j] = table[i+2500][j];
+                chunk2[i][j] = table[i+5000][j];
+                chunk3[i][j] = table[i+7500][j];
             }
         }
 
@@ -64,9 +64,10 @@ int main(int argc, char** argv) {
         //
         // The Sends and receives need unique tag number
         //
-        MPI_Isend(&chunk1,sizeof(chunk1),MPI_INT, 1, 1, MPI_COMM_WORLD, &request1);
-        MPI_Isend(&chunk2,sizeof(chunk2),MPI_INT, 2, 2, MPI_COMM_WORLD, &request2);
-        MPI_Isend(&chunk3,sizeof(chunk3),MPI_INT, 3, 3, MPI_COMM_WORLD, &request3);
+        MPI_Isend(&chunk1,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 1, 1, MPI_COMM_WORLD, &request1);
+        MPI_Isend(&chunk2,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 2, 2, MPI_COMM_WORLD, &request2);
+        MPI_Isend(&chunk3,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 3, 3, MPI_COMM_WORLD, &request3);
+        //printf("%d: chunk size: %d\n",myrank,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE);
 
         int* sums0 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums1 = (int*)calloc(CHUNKSIZE,sizeof(int));
@@ -74,16 +75,16 @@ int main(int argc, char** argv) {
         int* sums3 = (int*)calloc(CHUNKSIZE,sizeof(int));
 
         // rank0 pulls its weight
-        sum_chunk(chunk0,&sums0,myrank);
-
+        sum_chunk(chunk0,sums0,myrank);
         printf("%d here\n",myrank);
+
         MPI_Wait(&request1,&status1);
         MPI_Wait(&request2,&status2);
         MPI_Wait(&request3,&status3);
 
-        MPI_Irecv(sums1,sizeof(sums1), MPI_INT, 1, 4, MPI_COMM_WORLD, &request1);
-        MPI_Irecv(sums1,sizeof(sums2), MPI_INT, 2, 5, MPI_COMM_WORLD, &request2);
-        MPI_Irecv(sums1,sizeof(sums3), MPI_INT, 3, 6, MPI_COMM_WORLD, &request3);
+        MPI_Irecv(sums1,sizeof(int)*CHUNKSIZE, MPI_INT, 1, 4, MPI_COMM_WORLD, &request1);
+        MPI_Irecv(sums1,sizeof(int)*CHUNKSIZE, MPI_INT, 2, 5, MPI_COMM_WORLD, &request2);
+        MPI_Irecv(sums1,sizeof(int)*CHUNKSIZE, MPI_INT, 3, 6, MPI_COMM_WORLD, &request3);
 
         MPI_Wait(&request1,&status1);
         MPI_Wait(&request2,&status2);
@@ -113,13 +114,13 @@ int main(int argc, char** argv) {
 
         int* sums = (int*)calloc(CHUNKSIZE,sizeof(int));
 
-        MPI_Irecv(&chunk,sizeof(chunk),MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
-
-
+        MPI_Irecv(&chunk,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
         MPI_Wait(&request,&status);
-        sum_chunk(chunk,&sums,myrank);
+
+        //printf("%d: chunk size: %d\n",myrank,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE);
+        sum_chunk(chunk,sums,myrank);
         printf("%d here\n",myrank);
-        MPI_Isend(&chunk,sizeof(chunk),MPI_INT,0,myrank*2,MPI_COMM_WORLD,&request);
+        MPI_Isend(&chunk,sizeof(int)*CHUNKSIZE,MPI_INT,0,myrank*2,MPI_COMM_WORLD,&request);
         MPI_Wait(&request,&status);
     }
 
@@ -148,18 +149,22 @@ int main(int argc, char** argv) {
 //
 
 /**
- * Row-wise summation of entire chunk, returns array of row sums
+ * Row-wise summation of entire chunk, 
+ * takes as its inputs a 2D array of integers, chunk, 
+ * and the pointer to a summation array, sums
+ * (for debugging also takes the rank identifier)
+ * Returns by referense the sums of each element of a given row.
  */
-void sum_chunk(int **chunk, int **sums, int myrank) {
-
-    for (int i = 0; i < CHUNKSIZE; i++) {
-        printf("%d:\t%d\t%x\n",myrank,chunk[i][0],*sums[i]);
-        *sums[i] = 0;
-        for (int j = 0; j < COLS; j++) {
-            //if ( (j == COLS - 1)) {
-            //    printf("%d:\t%d\t%x\n",myrank,chunk[i][j],*sums[i]);
-            //}
-            *sums[i] += chunk[i][j];
+void sum_chunk(int **chunk, int *sums, int myrank) {
+    sums[0]=0;
+    //printf("%d\t%d\n",myrank,sums[0]);
+    int i,j;
+    for (i = 0; i < CHUNKSIZE; i++) {
+        //printf("%d:\t%d\t%x\t%d\n",myrank,chunk[i][0],sums[i],i);
+        for (j = 0; j < COLS; j++) {
+            sums[i] += chunk[i][j];
         }
+        //printf("%d: %d\n",myrank,i); 
     }
+    //printf("%d sum done\n",myrank);
 }
