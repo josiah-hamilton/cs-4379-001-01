@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
         // random matrix data
         for (int i = 0; i < COLS; i++) {
             for (int j = 0; j < ROWS; j++) {
-                *(table + COLS*i + j) = j+i; //(int)rand();
+                *(table + COLS*i + j) = (int)rand(); // i+j;
             }
         }
         
@@ -81,20 +81,20 @@ int main(int argc, char** argv) {
         MPI_Irecv(sums3,sumbufsize,MPI_INT,3,6,MPI_COMM_WORLD,&request6);
 
         MPI_Wait(&request4,&status4);
-        printf("done on 4\n");
+        //printf("done on 4\n");
         MPI_Wait(&request5,&status5);
-        printf("done on 5\n");
+        //printf("done on 5\n");
         MPI_Wait(&request6,&status6);
-        printf("done on 6\n");
-        for (int j = 0; j < CHUNKSIZE; j++) {
-            printf("%d: %d\n",myrank,*(sums1 + j));
-        }
-        for (int j = 0; j < CHUNKSIZE; j++) {
-            printf("%d: %d\n",myrank,*(sums2 + j));
-        }
-        for (int j = 0; j < CHUNKSIZE; j++) {
-            printf("%d: %d\n",myrank,*(sums3 + j));
-        }
+        //printf("done on 6\n");
+        //for (int j = 0; j < CHUNKSIZE; j++) {
+        //    printf("%d: %d\n",myrank,*(sums1 + j));
+        //}
+        //for (int j = 0; j < CHUNKSIZE; j++) {
+        //    printf("%d: %d\n",myrank,*(sums2 + j));
+        //}
+        //for (int j = 0; j < CHUNKSIZE; j++) {
+        //    printf("%d: %d\n",myrank,*(sums3 + j));
+        //}
         //free(table);
         //free(chunk0);
         //free(chunk1);
