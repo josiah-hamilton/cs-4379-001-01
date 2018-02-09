@@ -4,8 +4,8 @@
 #include<time.h>
 
 #define RANKS 4
-#define ROWS 32
-#define COLS 32
+#define ROWS 10000
+#define COLS 10000
 #define CHUNKSIZE ROWS / RANKS
 
 //int rank0();        // status
