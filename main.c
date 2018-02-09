@@ -4,8 +4,8 @@
 #include<time.h>
 
 #define RANKS 4
-#define ROWS 10000
-#define COLS 10000
+#define ROWS 32
+#define COLS 32
 #define CHUNKSIZE ROWS / RANKS
 
 //int rank0();        // status
@@ -49,15 +49,17 @@ int main(int argc, char** argv) {
             }
         }
         
+        printf("Pre chunking\n");
         // split table into chunks
         for (int i = 0; i < CHUNKSIZE; i++) {
             for ( int j = 0; j < COLS; j++) {
                 chunk0[i][j] = table[i+0][j];
-                chunk1[i][j] = table[i+2500][j];
-                chunk2[i][j] = table[i+5000][j];
-                chunk3[i][j] = table[i+7500][j];
+                chunk1[i][j] = table[i+ROWS-3*CHUNKSIZE][j];
+                chunk2[i][j] = table[i+ROWS-2*CHUNKSIZE][j];
+                chunk3[i][j] = table[i+ROWS-1*CHUNKSIZE][j];
             }
         }
+        printf("Post chunking\n");
 
         MPI_Request request1,request2,request3,request4,request5,request6;
         MPI_Status  status1,status2,status3,status4,status5,status6;
@@ -113,13 +115,13 @@ int main(int argc, char** argv) {
         }
 
         int* sums = (int*)calloc(CHUNKSIZE,sizeof(int));
+        printf("%d here\n",myrank);
 
         MPI_Irecv(&chunk,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
         MPI_Wait(&request,&status);
-
-        //printf("%d: chunk size: %d\n",myrank,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE);
-        sum_chunk(chunk,sums,myrank);
         printf("%d here\n",myrank);
+
+        sum_chunk(chunk,sums,myrank);
         MPI_Isend(&chunk,sizeof(int)*CHUNKSIZE,MPI_INT,0,myrank*2,MPI_COMM_WORLD,&request2);
         MPI_Wait(&request,&status2);
     }
@@ -157,14 +159,10 @@ int main(int argc, char** argv) {
  */
 void sum_chunk(int **chunk, int *sums, int myrank) {
     sums[0]=0;
-    //printf("%d\t%d\n",myrank,sums[0]);
     int i,j;
     for (i = 0; i < CHUNKSIZE; i++) {
-        //printf("%d:\t%d\t%x\t%d\n",myrank,chunk[i][0],sums[i],i);
         for (j = 0; j < COLS; j++) {
             sums[i] += chunk[i][j];
         }
-        //printf("%d: %d\n",myrank,i); 
     }
-    //printf("%d sum done\n",myrank);
 }
