@@ -77,15 +77,14 @@ int main(int argc, char** argv) {
         }
         printf("here");
 
-        MPI_Comm    comm1,comm2,comm3;
         MPI_Request request1,request2,request3;
         MPI_Status  status1,status2,status3;
         //
         // The Sends and receives need unique tag number
         //
-        MPI_Isend(&chunk1,sizeof(chunk1),MPI_INT, 1, 1, comm1, &request1);
-        MPI_Isend(&chunk2,sizeof(chunk2),MPI_INT, 2, 2, comm2, &request2);
-        MPI_Isend(&chunk3,sizeof(chunk3),MPI_INT, 3, 3, comm3, &request3);
+        MPI_Isend(&chunk1,sizeof(chunk1),MPI_INT, 1, 1, MPI_COMM_WORLD, &request1);
+        MPI_Isend(&chunk2,sizeof(chunk2),MPI_INT, 2, 2, MPI_COMM_WORLD, &request2);
+        MPI_Isend(&chunk3,sizeof(chunk3),MPI_INT, 3, 3, MPI_COMM_WORLD, &request3);
 
         int* sums0 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums1 = (int*)calloc(CHUNKSIZE,sizeof(int));
@@ -99,9 +98,9 @@ int main(int argc, char** argv) {
         MPI_Wait(&request2,&status2);
         MPI_Wait(&request3,&status3);
 
-        MPI_Irecv(sums1, CHUNKSIZE*COLS, MPI_INT, 4, 4, comm1, &request1);
-        MPI_Irecv(sums1, CHUNKSIZE*COLS, MPI_INT, 5, 5, comm2, &request2);
-        MPI_Irecv(sums1, CHUNKSIZE*COLS, MPI_INT, 6, 6, comm3, &request3);
+        MPI_Irecv(sums1,sizeof(sums1), MPI_INT, 1, 4, MPI_COMM_WORLD, &request1);
+        MPI_Irecv(sums1,sizeof(sums2), MPI_INT, 2, 5, MPI_COMM_WORLD, &request2);
+        MPI_Irecv(sums1,sizeof(sums3), MPI_INT, 3, 6, MPI_COMM_WORLD, &request3);
 
         MPI_Wait(&request1,&status1);
         MPI_Wait(&request2,&status2);
@@ -122,7 +121,6 @@ int main(int argc, char** argv) {
     } else {
 
         printf("%d here",myrank);
-        MPI_Comm comm;
         MPI_Request request;
         MPI_Status status;
 
@@ -134,12 +132,12 @@ int main(int argc, char** argv) {
 
         int* sums = (int*)calloc(CHUNKSIZE,sizeof(int));
 
-        MPI_Irecv(&chunk,sizeof(chunk),MPI_INT, myrank, myrank, comm, &request);
+        MPI_Irecv(&chunk,sizeof(chunk),MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
 
 
         MPI_Wait(&request,&status);
         sums = sum_chunk(chunk);
-        MPI_Isend(&chunk,CHUNKSIZE*COLS,MPI_INT,myrank*2,myrank*2,comm,&request);
+        MPI_Isend(&chunk,sizeof(chunk),MPI_INT,0,myrank*2,MPI_COMM_WORLD,&request);
         MPI_Wait(&request,&status);
     }
 
