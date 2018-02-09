@@ -10,7 +10,7 @@
 
 //int rank0();        // status
 //int rankchild();    // status
-void sum_chunk(int**,int*,int);
+void sum_chunk(int**,int*);
 
 int main(int argc, char** argv) {
     srand(time(NULL)); // seed clock for rand()
@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
  * (for debugging also takes the rank identifier)
  * Returns by referense the sums of each element of a given row.
  */
-void sum_chunk(int **chunk, int *sums, int myrank) {
+void sum_chunk(int **chunk, int *sums) {
     sums[0]=0;
     int i,j;
     for (i = 0; i < CHUNKSIZE; i++) {
