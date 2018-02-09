@@ -13,17 +13,16 @@
 int* sum_chunk(int**);
 
 int main(int argc, char** argv) {
-    
     srand(time(NULL)); // seed clock for rand()
 
     int size;    // needed for sending # of processes to MPI
     //int **table; // deprecated
     int myrank;
-
+    //printf("here\n");
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
     int rank = myrank * CHUNKSIZE;
+    //printf("here\n");
 
     //int table[ROWS][COLS]; // randomly generated matrix decided by ROWS and COLS
     //int chunk [CHUNKSIZE][COLS];
@@ -34,19 +33,40 @@ int main(int argc, char** argv) {
     
     // Allocate row pointers + rows
     int **table  = (int**)malloc(ROWS*sizeof *table+(ROWS*(COLS*sizeof **table)));
-    int **chunk  = (int**)malloc(CHUNKSIZE*sizeof *chunk +(CHUNKSIZE * (COLS * sizeof **chunk)));
     int **chunk0 = (int**)malloc(CHUNKSIZE*sizeof *chunk0 +(CHUNKSIZE * (COLS * sizeof **chunk0)));
     int **chunk1 = (int**)malloc(CHUNKSIZE*sizeof *chunk1 +(CHUNKSIZE * (COLS * sizeof **chunk1)));
     int **chunk2 = (int**)malloc(CHUNKSIZE*sizeof *chunk2 +(CHUNKSIZE * (COLS * sizeof **chunk2)));
     int **chunk3 = (int**)malloc(CHUNKSIZE*sizeof *chunk3 +(CHUNKSIZE * (COLS * sizeof **chunk3)));
+    
+    // initialize row-wise pointers. We're going to see this a few more times.
+    int *rowptr_table  = (int*)table + ROWS;
+    int *rowptr_chunk0 = (int*)chunk0 + CHUNKSIZE;
+    int *rowptr_chunk1 = (int*)chunk1 + CHUNKSIZE;
+    int *rowptr_chunk2 = (int*)chunk2 + CHUNKSIZE;
+    int *rowptr_chunk3 = (int*)chunk3 + CHUNKSIZE;
+    for (int i = 0; i < ROWS; i++) {
+        table[i] = rowptr_table + i * COLS;
+    }
+    for (int i = 0; i < CHUNKSIZE; i++) {
+        chunk0[i] = rowptr_chunk0 + i * CHUNKSIZE;
+        chunk1[i] = rowptr_chunk1 + i * CHUNKSIZE;
+        chunk2[i] = rowptr_chunk2 + i * CHUNKSIZE;
+        chunk3[i] = rowptr_chunk3 + i * CHUNKSIZE;
+    }
+    // finish initialize row-wise pointers, for now.
 
     // rank 0 generates matrix data and sums first chunk
     if (myrank == 0) {
+        
+        printf("%d here",myrank);
+        // random matrix data
         for (int i = 0; i < COLS; i++) {
             for (int j = 0; j < ROWS; j++) {
                 table[i][j] = (int)rand();
             }
         }
+        
+        // split table into chunks
         for (int i = 0; i < CHUNKSIZE; i++) {
             for ( int j = 0; j < COLS; j++) {
                 chunk0[i][j] = table[i*1-1][j];
@@ -55,23 +75,25 @@ int main(int argc, char** argv) {
                 chunk3[i][j] = table[i*4-1][j];
             }
         }
+        printf("here");
+
         MPI_Comm    comm1,comm2,comm3;
         MPI_Request request1,request2,request3;
         MPI_Status  status1,status2,status3;
         //
-        // The Sends and receives need unique tag noumber
+        // The Sends and receives need unique tag number
         //
-        MPI_Isend(&chunk1,CHUNKSIZE*COLS,MPI_INT, 1, 1, comm1, &request1);
-        MPI_Isend(&chunk2,CHUNKSIZE*COLS,MPI_INT, 2, 2, comm2, &request2);
-        MPI_Isend(&chunk3,CHUNKSIZE*COLS,MPI_INT, 3, 3, comm3, &request3);
-        
-        // rank0 pulls its weight
+        MPI_Isend(&chunk1,sizeof(chunk1),MPI_INT, 1, 1, comm1, &request1);
+        MPI_Isend(&chunk2,sizeof(chunk2),MPI_INT, 2, 2, comm2, &request2);
+        MPI_Isend(&chunk3,sizeof(chunk3),MPI_INT, 3, 3, comm3, &request3);
 
         int* sums0 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums1 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums2 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums3 = (int*)calloc(CHUNKSIZE,sizeof(int));
-        sums0 = sum_chunk(chunk);
+
+        // rank0 pulls its weight
+        sums0 = sum_chunk(chunk0);
 
         MPI_Wait(&request1,&status1);
         MPI_Wait(&request2,&status2);
@@ -98,18 +120,30 @@ int main(int argc, char** argv) {
         
 
     } else {
-        // chunk = mpireceive myrank 
+
+        printf("%d here",myrank);
         MPI_Comm comm;
         MPI_Request request;
         MPI_Status status;
-        MPI_Irecv(&chunk,CHUNKSIZE*COLS,MPI_INT, myrank, myrank, comm, &request);
+
+        int** chunk = (int**)malloc(CHUNKSIZE*sizeof *chunk +(CHUNKSIZE * (COLS * sizeof **chunk)));
+        int* rowptr_chunk = (int*)chunk + CHUNKSIZE;
+        for (int i = 0; i < CHUNKSIZE; i++) {
+            chunk[i] = rowptr_chunk + i * CHUNKSIZE;
+        }
+
+        int* sums = (int*)calloc(CHUNKSIZE,sizeof(int));
+
+        MPI_Irecv(&chunk,sizeof(chunk),MPI_INT, myrank, myrank, comm, &request);
+
+
         MPI_Wait(&request,&status);
-        int* sums = sum_chunk(chunk);
-        MPI_Isend(&chunk,CHUNKSIZE*COLS,MPI_INT, myrank*2, myrank*2, comm, &request);
+        sums = sum_chunk(chunk);
+        MPI_Isend(&chunk,CHUNKSIZE*COLS,MPI_INT,myrank*2,myrank*2,comm,&request);
         MPI_Wait(&request,&status);
     }
 
-    return 0;
+    return MPI_Finalize();
 }
 /**
  * Deprecated for the moment
@@ -137,7 +171,9 @@ int main(int argc, char** argv) {
  * Row-wise summation of entire chunk, returns array of row sums
  */
 int* sum_chunk(int** chunk) {
-    int* sums = (int*)calloc(COLS, sizeof(int));
+
+    int* sums = (int*)malloc(COLS* sizeof(int));
+
     for (int i = 0; i < CHUNKSIZE; i++) {
         for (int j = 0; j < COLS; j++) {
             sums[i] += chunk[i][j];
