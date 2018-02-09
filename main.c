@@ -21,6 +21,8 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     int rank = myrank * CHUNKSIZE;
+    int chunkbufsize = sizeof(int)*COLS*CHUNKSIZE + sizeof(int*)*CHUNKSIZE;
+    int sumbufsize   = sizeof(int)*CHUNKSIZE;
 
     // rank 0 generates matrix data and sums first chunk
     if (myrank == 0) {
@@ -49,7 +51,6 @@ int main(int argc, char** argv) {
             }
         }
         
-        printf("Pre chunking\n");
         // split table into chunks
         for (int i = 0; i < CHUNKSIZE; i++) {
             for ( int j = 0; j < COLS; j++) {
@@ -59,38 +60,53 @@ int main(int argc, char** argv) {
                 chunk3[i][j] = table[i+ROWS-1*CHUNKSIZE][j];
             }
         }
-        printf("Post chunking\n");
 
         MPI_Request request1,request2,request3,request4,request5,request6;
         MPI_Status  status1,status2,status3,status4,status5,status6;
-        //
+        int flag1, flag2, flag3, flag4, flag5, flag6;
+        
         // The Sends and receives need unique tag number
-        //
-        MPI_Isend(&chunk1,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 1, 1, MPI_COMM_WORLD, &request1);
-        MPI_Isend(&chunk2,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 2, 2, MPI_COMM_WORLD, &request2);
-        MPI_Isend(&chunk3,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 3, 3, MPI_COMM_WORLD, &request3);
-        //printf("%d: chunk size: %d\n",myrank,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE);
+        
+        //MPI_Isend(&chunk1,chunkbufsize,MPI_INT,1,1,MPI_COMM_WORLD,&request1);
+        //MPI_Isend(&chunk2,chunkbufsize,MPI_INT,2,2,MPI_COMM_WORLD,&request2);
+        //MPI_Isend(&chunk3,chunkbufsize,MPI_INT,3,3,MPI_COMM_WORLD,&request3);
+        MPI_Isend(chunk1,chunkbufsize,MPI_INT,1,1,MPI_COMM_WORLD,&request1);
+        MPI_Isend(chunk2,chunkbufsize,MPI_INT,2,2,MPI_COMM_WORLD,&request2);
+        MPI_Isend(chunk3,chunkbufsize,MPI_INT,3,3,MPI_COMM_WORLD,&request3);
+        printf("%d: chunk size: %d\n",myrank,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE);
+        printf("Post Sending\n");
 
         int* sums0 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums1 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums2 = (int*)calloc(CHUNKSIZE,sizeof(int));
         int* sums3 = (int*)calloc(CHUNKSIZE,sizeof(int));
 
+        //MPI_Wait(&request1,&status1);
+        //MPI_Wait(&request2,&status2);
+        //MPI_Wait(&request3,&status3);
+        do { 
+            MPI_Test(&request1,&flag1,&status1);
+            MPI_Test(&request2,&flag2,&status2);
+            MPI_Test(&request3,&flag3,&status3);
+        } while (!(flag1 && flag2 && flag3));
+
         // rank0 pulls its weight
+        printf("%d presum\n",myrank);
         sum_chunk(chunk0,sums0,myrank);
-        printf("%d here\n",myrank);
+        printf("%d postsum\n",myrank);
 
-        MPI_Wait(&request1,&status1);
-        MPI_Wait(&request2,&status2);
-        MPI_Wait(&request3,&status3);
+        MPI_Irecv(sums1,sumbufsize,MPI_INT,1,4,MPI_COMM_WORLD,&request4);
+        MPI_Irecv(sums1,sumbufsize,MPI_INT,2,5,MPI_COMM_WORLD,&request5);
+        MPI_Irecv(sums1,sumbufsize,MPI_INT,3,6,MPI_COMM_WORLD,&request6);
 
-        MPI_Irecv(sums1,sizeof(int)*CHUNKSIZE, MPI_INT, 1, 4, MPI_COMM_WORLD, &request4);
-        MPI_Irecv(sums1,sizeof(int)*CHUNKSIZE, MPI_INT, 2, 5, MPI_COMM_WORLD, &request5);
-        MPI_Irecv(sums1,sizeof(int)*CHUNKSIZE, MPI_INT, 3, 6, MPI_COMM_WORLD, &request6);
-
-        MPI_Wait(&request4,&status4);
-        MPI_Wait(&request5,&status5);
-        MPI_Wait(&request6,&status6);
+        //MPI_Wait(&request4,&status4);
+        //MPI_Wait(&request5,&status5);
+        //MPI_Wait(&request6,&status6);
+        do { 
+            MPI_Test(&request4,&flag4,&status4);
+            MPI_Test(&request5,&flag5,&status5);
+            MPI_Test(&request6,&flag6,&status6);
+        } while (!(flag4 && flag5 && flag6));
 
         // The following results print has some incorrently assumed maco definitions
         //int results = open("results.txt", O_WRONLY, O_CREAT);
@@ -108,6 +124,7 @@ int main(int argc, char** argv) {
 
         MPI_Request request,request2;
         MPI_Status status,status2;
+        int flag, flag2;
 
         int **chunk = (int **)calloc(CHUNKSIZE,sizeof(int*));
         for (int i = 0; i < ROWS; i++) {
@@ -115,15 +132,18 @@ int main(int argc, char** argv) {
         }
 
         int* sums = (int*)calloc(CHUNKSIZE,sizeof(int));
-        printf("%d here\n",myrank);
 
-        MPI_Irecv(&chunk,sizeof(int)*COLS*CHUNKSIZE+sizeof(int*)*CHUNKSIZE,MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
-        MPI_Wait(&request,&status);
-        printf("%d here\n",myrank);
+        //MPI_Irecv(&chunk,chunkbufsize,MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
+        MPI_Irecv(chunk,chunkbufsize,MPI_INT, 0, myrank, MPI_COMM_WORLD, &request);
+        do { MPI_Test(&request,&flag,&status);
+        } while (!flag);
+        printf("%d presum\n",myrank);
 
         sum_chunk(chunk,sums,myrank);
+        printf("%d postsum\n",myrank);
         MPI_Isend(&chunk,sizeof(int)*CHUNKSIZE,MPI_INT,0,myrank*2,MPI_COMM_WORLD,&request2);
-        MPI_Wait(&request,&status2);
+        do { MPI_Test(&request,&flag2,&status);
+        } while (!flag2);
     }
 
     return MPI_Finalize();
