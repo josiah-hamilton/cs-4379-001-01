@@ -1,4 +1,5 @@
 CC=mpicc
+
 %.o:%.c
 	$(CC) $(CFLAGS) $< -o $@
 hwk1make: main
